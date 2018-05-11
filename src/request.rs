@@ -1,4 +1,3 @@
-//! This modules contains some of the data types used, like e.g. Response, Request, Envelop etc.
 use std::mem;
 
 use new_tokio_smtp::send_mail::{
@@ -6,7 +5,6 @@ use new_tokio_smtp::send_mail::{
     MailAddress,
     EnvelopData
 };
-
 
 use mail_common::MailType;
 use mail_common::encoder::{EncodingBuffer, EncodableInHeader};
@@ -17,14 +15,6 @@ use headers::error::BuildInValidationError;
 use mail::Mail;
 use mail::error::MailError;
 
-
-
-
-// pub type MailSendResult = Result<MailResponse, MailSendError>;
-// pub(crate) type Handle2ServiceMsg = (MailRequest, oneshot::Sender<MailSendResult>);
-
-// #[derive(Debug, Clone)]
-// pub struct MailResponse;
 
 #[derive(Clone, Debug)]
 pub struct MailRequest {

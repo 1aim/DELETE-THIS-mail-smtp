@@ -9,8 +9,8 @@ extern crate failure;
 mod resolve_all;
 
 pub mod error;
-mod common;
-mod encode;
+mod request;
+mod send_mail;
 
-pub use self::common::*;
-pub use self::encode::*;
+pub use self::request::*;
+pub use self::send_mail::*;

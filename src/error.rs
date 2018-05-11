@@ -46,22 +46,22 @@ impl From<LogicError> for MailSendError {
 #[derive(Debug, Fail)]
 pub enum TransportError {
 
-    // Setting up the connection failed
-    //
-    // Failures can include but are not limited to:
-    //
-    // - connecting with tcp failed
-    // - starting tls failed
-    // - server does not want to be used (e.g. failure on sending EHLO)
-    // - authentication failed
+    /// Setting up the connection failed
+    ///
+    /// Failures can include but are not limited to:
+    ///
+    /// - connecting with tcp failed
+    /// - starting tls failed
+    /// - server does not want to be used (e.g. failure on sending EHLO)
+    /// - authentication failed
     #[fail(display = "{}", _0)]
     Connecting(ConnectingFailed),
 
-    // An I/O-Error happened while using the connection
-    //
-    // This is mainly for I/O-Error after the setup of the connection
-    // was successful, which normally sending includes Ehlo and Auth
-    // commands
+    /// An I/O-Error happened while using the connection
+    ///
+    /// This is mainly for I/O-Error after the setup of the connection
+    /// was successful, which normally sending includes Ehlo and Auth
+    /// commands
     #[fail(display = "{}", _0)]
     Io(std_io::Error)
 }

@@ -1,33 +1,3 @@
-
-/*
-
-
-       ↓
-  ---[][][]--------------------------            \
-  |    ↓            <<sequential>>  |             \
-  |    ↓                            |              \
-  | (create envelop)                |  \            |
-  |    ↓                            |  | 1. func    |
-  | (into encodable mail)           |  /            |
-  |    ↓ [envelop, encodable mail]  |                > 3. encode_mails
-  | (offload encode mail)           |  > 2. func    |
-  |    ↓ [envelop, future->Vec<u8>] |               |
-  ---[][][]--------------------------              /
-       ↓
-  [Future<Vec<Result<>>]............/ we don't want a stream here all encoding should     \
-       ↓                            | be already done, so that there are no large periods |
-       ↓                            \ where the smtp connection is open and pending       /
-       ↓
-  ---[][][]--------------------------             \
-  |    ↓       <<async/sequential>> |              \
-  |    ↓                            |               |
-  | (send mail)                     |                > send_mails
-  |    ↓                            |               |
-  |   <ok?> →→no→→ (add to failures)|               |
-  |    ↓ yes                        |              /
-  ---[][][]--------------------------             /
-       ↓
-*/
 use std::iter::FromIterator;
 use std::vec;
 
@@ -45,11 +15,26 @@ use ::common::MailRequest;
 use ::error::{MailSendError, TransportError};
 
 
+/// Result of encoding a mail
 pub type EncodeMailResult = Result<smtp::MailEnvelop, MailError>;
 
-// errors:
-// - EnvelopFromMailError
-// - MailError
+/// creates a futures which encodes all mails
+///
+/// To encode the mails this functions turns
+/// mail every requests into mails with envelop data,
+/// then creates a future resolving when the mail is
+/// ready to be encoded and chain this result with
+/// offloading the actual encoding of each mail
+/// to a thread pool. Lastly all fo this futures
+/// are polled in parallel by the returned future.
+///
+/// # Error
+///
+/// The futures will never error, but it will
+/// resolve to a vector of results, representing
+/// the encoding result for each mail in the input
+/// separately
+///
 pub fn encode_mails<I, C>(requests: I, ctx: &C)
     //TODO[futures/v>=0.2 | rust/! type]: use Never or !
     -> impl Future<Item=Vec<EncodeMailResult>, Error=()> + Send
@@ -89,9 +74,22 @@ pub fn encode_mails<I, C>(requests: I, ctx: &C)
     ResolveAll::from_iter(pending)
 }
 
+/// results of sending an encoded mail
 pub type SendMailResult = Result<(), MailSendError>;
 
-
+/// Sends all encoded mails through the given connection
+///
+/// This methods accepts a iterator of `EncodedMailResult`'s as it's
+/// meant to be chained with `encode_mails`.
+///
+/// # Error
+///
+/// The returned future resolves to a vector of results, one for each mail
+/// send.
+///
+/// If a transport error happens (e.g. an I/O-Error) a tuple consisting of
+/// the Error, the already send mails and and iterator of the remaining mails is
+/// returned.
 pub fn send_encoded_mails<I>(con: Connection, mails: I)
     -> impl Future<
         Item=(Connection, Vec<SendMailResult>),
