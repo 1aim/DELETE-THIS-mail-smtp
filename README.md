@@ -1,8 +1,6 @@
-# mail-smtp &emsp; [![Build Status](https://travis-ci.org/1aim/mail_smtp.svg?branch=master)](https://travis-ci.org/1aim/mail_smtp)
+# mail-smtp &emsp;
 
-**[internal/mail-api] combines mail-types with new-tokio-smtp**
-
----
+_[internal/mail-api] combines the `mail-types` crate with `new-tokio-smtp` crate_
 
 Mainly provides a `send_mails` method, which given a `ConnectionConfig` and
 a iterable source of `MailRequest`'s (e.g. `Vec<MailRequest>`) sends all mails
