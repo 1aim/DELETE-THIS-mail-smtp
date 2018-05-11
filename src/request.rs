@@ -101,3 +101,121 @@ pub fn derive_envelop_data_from_mail(mail: &Mail)
         to: smtp_to
     })
 }
+
+#[cfg(test)]
+mod test {
+
+    mod derive_envelop_data_from_mail {
+        use super::super::derive_envelop_data_from_mail;
+        use mail::{Builder, Resource};
+        use headers::{_From, _To, Sender};
+        use headers::components::MediaType;
+        use mail::file_buffer::FileBuffer;
+
+        fn mock_resource() -> Resource {
+            let mt = MediaType::parse("text/plain; charset=utf-8").unwrap();
+            let fb = FileBuffer::new(mt, "abcd↓efg".to_owned().into());
+            Resource::sourceless_from_buffer(fb)
+        }
+
+        #[test]
+        fn use_sender_if_given() {
+            let mut builder = Builder::singlepart(mock_resource());
+            builder.header(Sender, "strange@caffe.test").unwrap();
+            builder.header(_From, ["ape@caffe.test", "epa@caffe.test"]).unwrap();
+            builder.header(_To, ["das@ding.test"]).unwrap();
+
+            let mail = builder.build().unwrap();
+
+            let envelop_data = derive_envelop_data_from_mail(&mail).unwrap();
+
+            assert_eq!(
+                envelop_data.from.as_ref().unwrap().as_str(),
+                "strange@caffe.test"
+            );
+        }
+
+        #[test]
+        fn use_from_if_no_sender_given() {
+            let mut builder = Builder::singlepart(mock_resource());
+            builder.header(_From, ["ape@caffe.test"]).unwrap();
+            builder.header(_To, ["das@ding.test"]).unwrap();
+
+            let mail = builder.build().unwrap();
+
+            let envelop_data = derive_envelop_data_from_mail(&mail).unwrap();
+
+            assert_eq!(
+                envelop_data.from.as_ref().unwrap().as_str(),
+                "ape@caffe.test"
+            );
+        }
+
+        #[test]
+        fn fail_if_no_sender_but_multi_mailbox_from() {
+            let mut builder = Builder::singlepart(mock_resource());
+            builder.header(_From, ["ape@caffe.test", "a@b.test"]).unwrap();
+            builder.header(_To, ["das@ding.test"]).unwrap();
+
+            let mail = builder.build().unwrap();
+
+            let envelop_data = derive_envelop_data_from_mail(&mail);
+
+            //assert is_err
+            envelop_data.unwrap_err();
+        }
+
+        #[test]
+        fn use_to() {
+            let mut builder = Builder::singlepart(mock_resource());
+            builder.header(_From, ["ape@caffe.test"]).unwrap();
+            builder.header(_To, ["das@ding.test"]).unwrap();
+
+            let mail = builder.build().unwrap();
+
+            let envelop_data = derive_envelop_data_from_mail(&mail).unwrap();
+
+            assert_eq!(
+                envelop_data.to.first().as_str(),
+                "das@ding.test"
+            );
+        }
+    }
+
+    mod mailaddress_from_mailbox {
+        use super::super::mailaddress_from_mailbox;
+        use headers::components::{Mailbox, Email};
+
+        #[test]
+        fn correctly_converts_mailbox() {
+            let mb = Mailbox::from(Email::new("tast@tost.test").unwrap());
+            let address = mailaddress_from_mailbox(&mb).unwrap();
+            assert_eq!(address.as_str(), "tast@tost.test");
+            assert_eq!(address.needs_smtputf8(), false);
+        }
+
+        #[test]
+        fn tracks_if_smtputf8_is_needed() {
+            let mb = Mailbox::from(Email::new("tüst@tost.test").unwrap());
+            let address = mailaddress_from_mailbox(&mb).unwrap();
+            assert_eq!(address.as_str(), "tüst@tost.test");
+            assert_eq!(address.needs_smtputf8(), true);
+        }
+
+        #[test]
+        fn puny_encodes_domain_if_smtputf8_is_not_needed() {
+            let mb = Mailbox::from(Email::new("tast@tüst.test").unwrap());
+            let address = mailaddress_from_mailbox(&mb).unwrap();
+            assert_eq!(address.as_str(), "tast@xn--tst-hoa.test");
+            assert_eq!(address.needs_smtputf8(), false);
+        }
+
+        #[test]
+        fn does_not_puny_encodes_domain_if_smtputf8_is_needed() {
+            let mb = Mailbox::from(Email::new("töst@tüst.test").unwrap());
+            let address = mailaddress_from_mailbox(&mb).unwrap();
+            assert_eq!(address.as_str(), "töst@tüst.test");
+            assert_eq!(address.needs_smtputf8(), true);
+        }
+    }
+}
