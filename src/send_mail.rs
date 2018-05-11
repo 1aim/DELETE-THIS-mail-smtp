@@ -3,7 +3,7 @@ use std::vec;
 
 use futures::future::{self, Either, Loop, Future};
 use new_tokio_smtp::{Cmd, Connection, ConnectionConfig, SetupTls};
-use new_tokio_smtp::send_mail::{self as smtp, ConSendMailExt};
+use new_tokio_smtp::send_mail::{self as smtp};
 
 use mail_common::MailType;
 use mail_common::encoder::EncodingBuffer;
