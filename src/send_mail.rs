@@ -11,9 +11,8 @@ use mail::context::BuilderContext;
 use mail::error::MailError;
 
 use ::resolve_all::ResolveAll;
-use ::common::MailRequest;
+use ::request::MailRequest;
 use ::error::{MailSendError, TransportError};
-
 
 /// Result of encoding a mail
 pub type EncodeMailResult = Result<smtp::MailEnvelop, MailError>;
