@@ -120,10 +120,10 @@ mod test {
 
         #[test]
         fn use_sender_if_given() {
-            let mut builder = Builder::singlepart(mock_resource());
-            builder.header(Sender, "strange@caffe.test").unwrap();
-            builder.header(_From, ["ape@caffe.test", "epa@caffe.test"]).unwrap();
-            builder.header(_To, ["das@ding.test"]).unwrap();
+            let mut builder = Builder::singlepart(mock_resource())
+                .header(Sender, "strange@caffe.test").unwrap()
+                .header(_From, ["ape@caffe.test", "epa@caffe.test"]).unwrap()
+                .header(_To, ["das@ding.test"]).unwrap();
 
             let mail = builder.build().unwrap();
 
@@ -137,9 +137,9 @@ mod test {
 
         #[test]
         fn use_from_if_no_sender_given() {
-            let mut builder = Builder::singlepart(mock_resource());
-            builder.header(_From, ["ape@caffe.test"]).unwrap();
-            builder.header(_To, ["das@ding.test"]).unwrap();
+            let mut builder = Builder::singlepart(mock_resource())
+                .header(_From, ["ape@caffe.test"]).unwrap()
+                .header(_To, ["das@ding.test"]).unwrap();
 
             let mail = builder.build().unwrap();
 
@@ -153,9 +153,9 @@ mod test {
 
         #[test]
         fn fail_if_no_sender_but_multi_mailbox_from() {
-            let mut builder = Builder::singlepart(mock_resource());
-            builder.header(_From, ["ape@caffe.test", "a@b.test"]).unwrap();
-            builder.header(_To, ["das@ding.test"]).unwrap();
+            let mut builder = Builder::singlepart(mock_resource())
+                .header(_From, ["ape@caffe.test", "a@b.test"]).unwrap()
+                .header(_To, ["das@ding.test"]).unwrap();
 
             let mail = builder.build().unwrap();
 
@@ -167,9 +167,9 @@ mod test {
 
         #[test]
         fn use_to() {
-            let mut builder = Builder::singlepart(mock_resource());
-            builder.header(_From, ["ape@caffe.test"]).unwrap();
-            builder.header(_To, ["das@ding.test"]).unwrap();
+            let mut builder = Builder::singlepart(mock_resource())
+                .header(_From, ["ape@caffe.test"]).unwrap()
+                .header(_To, ["das@ding.test"]).unwrap();
 
             let mail = builder.build().unwrap();
 
