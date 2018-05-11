@@ -1,76 +1,32 @@
 //! This modules contains some of the data types used, like e.g. Response, Request, Envelop etc.
+use std::mem;
 
-use vec1::Vec1;
+use new_tokio_smtp::send_mail::{
+    self as smtp,
+    MailAddress,
+    EnvelopData
+};
 
-use futures::sync::oneshot;
-use new_tokio_smtp::{ForwardPath, ReversePath};
 
-use mail::headers::{Sender, From as _From, To};
-use mail::headers::components::Mailbox;
+use mail_common::MailType;
+use mail_common::encoder::{EncodingBuffer, EncodableInHeader};
+use mail_common::error::EncodingError;
+use headers::{Sender, _From, _To};
+use headers::components::Mailbox;
+use headers::error::BuildInValidationError;
 use mail::Mail;
-use super::error::{MailSendError, EnvelopFromMailError};
+use mail::error::MailError;
 
-#[derive(Debug)]
-pub struct EnvelopData {
-    from: ReversePath,
-    to: Vec1<ForwardPath>
-}
 
-impl EnvelopData {
-    pub fn new(from: SmtpMailbox, to: Vec1<SmtpMailbox>) -> Self {
-        EnvelopData { from, to }
-    }
 
-    pub fn split(self) -> (SmtpMailbox, Vec1<SmtpMailbox>) {
-        let EnvelopData { from, to } = self;
-        (from, to)
-    }
 
-    pub fn from_mail(mail: &Mail) -> Result<Self, EnvelopFromMailError> {
+// pub type MailSendResult = Result<MailResponse, MailSendError>;
+// pub(crate) type Handle2ServiceMsg = (MailRequest, oneshot::Sender<MailSendResult>);
 
-        let headers = mail.headers();
-        let smtp_from =
-            if let Some(sender) = headers.get_single(Sender) {
-                let sender = sender.map_err(|tpr| EnvelopFromMailError::TypeError(tpr))?;
-                //TODO double check with from field
-                mailbox2smtp_mailbox(sender)
-            } else {
-                let from = headers.get_single(_From)
-                    .ok_or(EnvelopFromMailError::NeitherSenderNorFrom)?
-                    .map_err(|tpr| EnvelopFromMailError::TypeError(tpr))?;
+// #[derive(Debug, Clone)]
+// pub struct MailResponse;
 
-                if from.len() > 1 {
-                    return Err(EnvelopFromMailError::NoSenderAndMoreThanOneFrom);
-                }
-
-                mailbox2smtp_mailbox(from.first())
-            };
-
-        let smtp_to =
-            if let Some(to) = headers.get_single(To) {
-                let to = to.map_err(|tpr| EnvelopFromMailError::TypeError(tpr))?;
-                to.mapped_ref(mailbox2smtp_mailbox)
-            } else {
-                return Err(EnvelopFromMailError::NoToHeaderField);
-            };
-
-        //TODO Cc, Bcc
-
-        Ok(EnvelopData {
-            from: smtp_from,
-            to: smtp_to
-        })
-    }
-}
-
-pub type MailSendResult = Result<MailResponse, MailSendError>;
-pub(crate) type Handle2ServiceMsg = (MailRequest, oneshot::Sender<MailSendResult>);
-
-#[derive(Debug, Clone)]
-pub struct MailResponse;
-
-//TODO derive(Clone): requires clone for Box<EncodableMail+'static>
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MailRequest {
     mail: Mail,
     envelop_data: Option<EnvelopData>
@@ -94,19 +50,64 @@ impl MailRequest {
         MailRequest { mail, envelop_data: Some(envelop) }
     }
 
-    pub fn into_mail_with_envelop(self) -> Result<(Mail, EnvelopData), EnvelopFromMailError> {
+    pub fn override_envelop(&mut self, envelop: EnvelopData) -> Option<EnvelopData> {
+        mem::replace(&mut self.envelop_data, Some(envelop))
+    }
+
+    pub fn into_mail_with_envelop(self) -> Result<(Mail, EnvelopData), MailError> {
         let envelop =
             if let Some(envelop) = self.envelop_data { envelop }
-            else { EnvelopData::from_mail(&self.mail)? };
+            else { derive_envelop_data_from_mail(&self.mail)? };
 
         Ok((self.mail, envelop))
     }
 }
 
-fn mailbox2smtp_mailbox(mailbox: &Mailbox) -> SmtpMailbox {
-    use emailaddress::EmailAddress;
-    SmtpMailbox(Some(EmailAddress {
-        local: mailbox.email.local_part.as_str().to_owned(),
-        domain: mailbox.email.domain.as_str().to_owned(),
-    }))
+fn mailaddress_from_mailbox(mailbox: &Mailbox) -> Result<MailAddress, EncodingError> {
+    let email = &mailbox.email;
+    let needs_smtputf8 = email.check_if_internationalized();
+    let mt = if needs_smtputf8 { MailType::Internationalized } else { MailType::Ascii };
+    let mut buffer = EncodingBuffer::new(mt);
+    {
+        email.encode(&mut buffer.writer())?;
+    }
+    let raw: Vec<u8> = buffer.into();
+    let address = String::from_utf8(raw).expect("[BUG] encoding Email produced non utf8 data");
+    Ok(MailAddress::new_unchecked(address, needs_smtputf8))
+}
+
+pub fn derive_envelop_data_from_mail(mail: &Mail)
+    -> Result<smtp::EnvelopData, MailError>
+{
+    let headers = mail.headers();
+    let smtp_from =
+        if let Some(sender) = headers.get_single(Sender) {
+            let sender = sender?;
+            //TODO double check with from field
+            mailaddress_from_mailbox(sender)?
+        } else {
+            let from = headers.get_single(_From)
+                .ok_or(BuildInValidationError::NoFrom)??;
+
+            if from.len() > 1 {
+                return Err(BuildInValidationError::MultiMailboxFromWithoutSender.into());
+            }
+
+            mailaddress_from_mailbox(from.first())?
+        };
+
+    let smtp_to =
+        if let Some(to) = headers.get_single(_To) {
+            let to = to?;
+            to.try_mapped_ref(mailaddress_from_mailbox)?
+        } else {
+            return Err(BuildInValidationError::NoTo.into());
+        };
+
+    //TODO Cc, Bcc
+
+    Ok(EnvelopData {
+        from: Some(smtp_from),
+        to: smtp_to
+    })
 }

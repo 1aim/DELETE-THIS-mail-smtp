@@ -1,19 +1,16 @@
+extern crate futures;
 extern crate new_tokio_smtp;
+extern crate mail_types as mail;
+extern crate mail_common;
+extern crate mail_headers as headers;
+#[macro_use]
+extern crate failure;
 
-mod stop_handle;
-mod mpsc_ext;
+mod resolve_all;
 
 pub mod error;
 mod common;
-mod smtp_wrapper;
 mod encode;
-mod handle;
-mod service;
 
-pub use self::stop_handle::StopServiceHandle;
 pub use self::common::*;
-pub use self::handle::*;
-pub use self::service::*;
-
-#[cfg(test)]
-mod test;
+pub use self::encode::*;
