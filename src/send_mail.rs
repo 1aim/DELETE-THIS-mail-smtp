@@ -7,7 +7,7 @@ use new_tokio_smtp::send_mail::{self as smtp};
 
 use mail_common::MailType;
 use mail_common::encoder::EncodingBuffer;
-use mail::context::BuilderContext;
+use mail::Context;
 use mail::error::MailError;
 
 use ::resolve_all::ResolveAll;
@@ -34,10 +34,11 @@ pub type EncodeMailResult = Result<smtp::MailEnvelop, MailError>;
 /// the encoding result for each mail in the input
 /// separately
 ///
-pub fn encode_mails<I, C>(requests: I, ctx: &C)
+pub fn encode_mails(
+    requests: impl IntoIterator<Item=MailRequest>,
+    ctx: impl Context
     //TODO[futures/v>=0.2 | rust/! type]: use Never or !
-    -> impl Future<Item=Vec<EncodeMailResult>, Error=()> + Send
-    where I: IntoIterator<Item=MailRequest>, C: BuilderContext
+) -> impl Future<Item=Vec<EncodeMailResult>, Error=()> + Send
 {
     let pending = requests
         .into_iter()
@@ -50,7 +51,7 @@ pub fn encode_mails<I, C>(requests: I, ctx: &C)
 
             let _ctx = ctx.clone();
             let fut = mail
-                .into_encodeable_mail(ctx)
+                .into_encodeable_mail(ctx.clone())
                 .and_then(move |enc_mail| _ctx.offload_fn(move || {
                     let (mail_type, requirement) =
                         if envelop_data.needs_smtputf8() {
@@ -131,14 +132,13 @@ pub fn send_encoded_mails<I>(con: Connection, mails: I)
 ///
 /// Automatically handling Bcc/Cc is _not yet_ implemented.
 ///
-pub fn send_mails<S, A, I, C>(config: ConnectionConfig<A, S>, requests: I, ctx: &C)
+pub fn send_mails(
+    config: ConnectionConfig<impl Cmd, impl SetupTls>,
+    requests: impl IntoIterator<Item=MailRequest>,
+    ctx: impl Context)
     -> impl Future<
         Item=Vec<SendMailResult>,
         Error=(TransportError, Vec<SendMailResult>, vec::IntoIter<EncodeMailResult>)>
-    where I: IntoIterator<Item=MailRequest>,
-          C: BuilderContext,
-          S: SetupTls,
-          A: Cmd
 {
 
     let fut = encode_mails(requests, ctx)
