@@ -58,8 +58,10 @@ fn mailaddress_from_mailbox(mailbox: &Mailbox) -> Result<MailAddress, EncodingEr
     let needs_smtputf8 = email.check_if_internationalized();
     let mt = if needs_smtputf8 { MailType::Internationalized } else { MailType::Ascii };
     let mut buffer = EncodingBuffer::new(mt);
-    {
-        email.encode(&mut buffer.writer())?;
+     {
+        let mut writer = buffer.writer();
+        email.encode(&mut writer)?;
+        writer.commit_partial_header();
     }
     let raw: Vec<u8> = buffer.into();
     let address = String::from_utf8(raw).expect("[BUG] encoding Email produced non utf8 data");
@@ -183,8 +185,16 @@ mod test {
     }
 
     mod mailaddress_from_mailbox {
-        use super::super::mailaddress_from_mailbox;
+        use headers::HeaderTryFrom;
         use headers::components::{Mailbox, Email};
+        use super::super::mailaddress_from_mailbox;
+
+        #[test]
+        #[cfg_attr(not(feature="test-with-traceing"), ignore)]
+        fn does_not_panic_with_tracing_enabled() {
+            let mb = Mailbox::try_from("hy@b").unwrap();
+            mailaddress_from_mailbox(&mb).unwrap();
+        }
 
         #[test]
         fn correctly_converts_mailbox() {

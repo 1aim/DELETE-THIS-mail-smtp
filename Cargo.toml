@@ -17,3 +17,7 @@ mail-types = { git="https://github.com/1aim/mail-types" }
 mail-common = { git="https://github.com/1aim/mail-common" }
 mail-headers = { git="https://github.com/1aim/mail-headers" }
 new-tokio-smtp = { git="https://github.com/1aim/new-tokio-smtp" }
+
+
+[features]
+test-with-traceing = ["mail-common/traceing"]
