@@ -63,7 +63,8 @@ pub fn encode_mails(
                     let mut buffer = EncodingBuffer::new(mail_type);
                     enc_mail.encode(&mut buffer)?;
 
-                    let smtp_mail = smtp::Mail::new(requirement, buffer.into());
+                    let vec_buffer: Vec<_> = buffer.into();
+                    let smtp_mail = smtp::Mail::new(requirement, vec_buffer);
 
                     Ok(smtp::MailEnvelop::from((smtp_mail, envelop_data)))
                 }));
