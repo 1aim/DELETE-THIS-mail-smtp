@@ -14,3 +14,11 @@ mod send_mail;
 
 pub use self::request::*;
 pub use self::send_mail::*;
+
+pub use new_tokio_smtp::{ConnectionConfig, ConnectionBuilder};
+pub use new_tokio_smtp::command::auth;
+pub mod misc {
+    pub use new_tokio_smtp::ClientId;
+    pub use new_tokio_smtp::Domain;
+    pub use new_tokio_smtp::AddressLiteral;
+}
