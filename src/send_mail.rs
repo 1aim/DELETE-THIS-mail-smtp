@@ -14,26 +14,21 @@ use ::resolve_all::ResolveAll;
 use ::request::MailRequest;
 use ::error::{MailSendError, TransportError};
 
-/// Result of encoding a mail
+/// Result of encoding a mail.
 pub type EncodeMailResult = Result<smtp::MailEnvelop, MailError>;
 
-/// creates a futures which encodes all mails
+/// Creates a `Future` which encodes all mails.
 ///
-/// To encode the mails this functions turns
-/// mail every requests into mails with envelop data,
-/// then creates a future resolving when the mail is
-/// ready to be encoded and chain this result with
-/// offloading the actual encoding of each mail
-/// to a thread pool. Lastly all fo this futures
-/// are polled in parallel by the returned future.
+/// To encode the mails this function turns every `MailRequest` into mails with
+/// envelope data, then creates a `Future` resolving when the mail is ready to
+/// be encoded and chain this result by offloading the actual encoding of each
+/// mail to a thread pool. Lastly all of these `Future`s are polled in parallel
+/// by the returned `Future`.
 ///
 /// # Error
 ///
-/// The futures will never error, but it will
-/// resolve to a vector of results, representing
-/// the encoding result for each mail in the input
-/// separately
-///
+/// The `Future` will never error, but it will resolve to a vector of results
+/// representing the encoding result for each mail in the input separately.
 pub fn encode_mails(
     requests: impl IntoIterator<Item=MailRequest>,
     ctx: impl Context
@@ -75,21 +70,21 @@ pub fn encode_mails(
     ResolveAll::from_iter(pending)
 }
 
-/// results of sending an encoded mail
+/// Results of sending an encoded mail.
 pub type SendMailResult = Result<(), MailSendError>;
 
-/// Sends all encoded mails through the given connection
+/// Sends all encoded mails through the given `Connection`.
 ///
-/// This methods accepts a iterator of `EncodedMailResult`'s as it's
+/// This method accepts an iterator of `EncodedMailResult`'s as it's
 /// meant to be chained with `encode_mails`.
 ///
 /// # Error
 ///
-/// The returned future resolves to a vector of results, one for each mail
-/// send.
+/// The returned `Future` resolves to a vector of results, one for each mail
+/// sent.
 ///
-/// If a transport error happens (e.g. an I/O-Error) a tuple consisting of
-/// the Error, the already send mails and and iterator of the remaining mails is
+/// If a transport error happens (e.g. an I/O error) a tuple consisting of
+/// the `Error`, the already sent mails and and iterator of the remaining mails is
 /// returned.
 pub fn send_encoded_mails<I>(con: Connection, mails: I)
     -> impl Future<
@@ -121,18 +116,17 @@ pub fn send_encoded_mails<I>(con: Connection, mails: I)
     fut
 }
 
-/// Send mails _to a specific mail server_
+/// Send mails _to a specific mail server_.
 ///
 /// This encodes the mails, opens a connection, sends the mails over and
 /// closes the connection again.
 ///
-/// While this uses the `To` field of a mail to determine the smtp reveiver
-/// it does not resolve the server based on the mail address domain. This
-/// means it's best suite for sending to a Mail Submission Agent (MSA), but
-/// less for sending to a Mail Exchanger (MX).
+/// While this uses the `To` field of a mail to determine the SMTP receiver it
+/// does not resolve the server based on the mail address domain. This means
+/// it's best suited for sending to a Mail Submission Agent (MSA), but less for
+/// sending to a Mail Exchanger (MX).
 ///
-/// Automatically handling Bcc/Cc is _not yet_ implemented.
-///
+/// Automatically handling `Bcc`/`Cc` is _not yet_ implemented.
 pub fn send_mails(
     config: ConnectionConfig<impl Cmd, impl SetupTls>,
     requests: impl IntoIterator<Item=MailRequest>,
