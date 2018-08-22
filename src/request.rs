@@ -15,7 +15,15 @@ use headers::error::BuildInValidationError;
 use mail::Mail;
 use mail::error::MailError;
 
-
+/// This type contains a mail and potentially some envelop data.
+///
+/// It is needed as in some edge cases the smtp envelop data (i.e.
+/// smtp from and smtp recipient) can not be correctly derived
+/// from the mail.
+///
+/// The default usage is to directly turn a `Mail` into a `MailRequest`
+/// by either using  `MailRequest::new`, `MailRequest::from` or `Mail::into`.
+///
 #[derive(Clone, Debug)]
 pub struct MailRequest {
     mail: Mail,

@@ -74,14 +74,32 @@ pub use self::request::MailRequest;
 #[cfg(feature="extended-api")]
 pub use self::request::derive_envelop_data_from_mail;
 
-pub use self::send_mail::{send_mails, SendMailResult};
+pub use self::send_mail::{
+    send_mails,
+    SendMailResult
+};
 #[cfg(feature="extended-api")]
 pub use self::send_mail::{encode_mails, send_encoded_mails};
 
 
 pub use new_tokio_smtp::{ConnectionConfig, ConnectionBuilder};
-pub use new_tokio_smtp::command::auth;
+
+pub mod auth {
+    //! Module containing authentification commands/methods.
+    //!
+    //! This Module is re-exported from `new-tokio-smtp` for
+    //! ease of use.
+
+    pub use new_tokio_smtp::command::auth::*;
+
+    /// Auth command for not doing anything on auth.
+    //FIXME: this currently still sends the noop cmd,
+    // replace it with some new "NoCommand" command.
+    pub type NoAuth = ::new_tokio_smtp::command::Noop;
+}
+
 pub mod misc {
+    //! A small collection of usefull types re-exported from `new-tokio-smtp`.
     pub use new_tokio_smtp::ClientId;
     pub use new_tokio_smtp::Domain;
     pub use new_tokio_smtp::AddressLiteral;

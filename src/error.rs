@@ -1,9 +1,15 @@
+//! Module containing all custom errors.
 use std::{io as std_io};
 
 use new_tokio_smtp::error::{ConnectingFailed, LogicError};
 use mail::error::MailError;
 
 
+/// Error used when sending a mail fails.
+///
+/// Failing to encode a mail before sending
+/// it also counts as a `MailSendError`, as
+/// it's done "on the fly" when sending a mail.
 #[derive(Debug, Fail)]
 pub enum MailSendError {
     /// Creating the mail failed.
@@ -41,6 +47,16 @@ impl From<LogicError> for MailSendError {
     }
 }
 
+/// Error returned when something on the transport layer failed.
+///
+/// Thinks causing this error include:
+///
+/// - TLS required but not supported by server
+/// - authentication not valid
+/// - connection "broke" (e.g. because you
+///   internet connection is gone or the server
+///   crashed)
+///
 #[derive(Debug, Fail)]
 pub enum TransportError {
     /// Setting up the connection failed.

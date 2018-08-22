@@ -1,18 +1,9 @@
 # mail-smtp &emsp;
 
-_[internal/mail-api] combines the `mail-types` crate with `new-tokio-smtp` crate_
+**Allows sending `mail-types` `Mail`'s through  `new-tokio-smtp`**
 
-Mainly provides a `send_mails` method, which given a `ConnectionConfig` and
-an iterable source of `MailRequest`'s (e.g. `Vec<MailRequest>`) sends all mails
-to the server specified in the `ConnectionConfig`.  This includes setting up
-the connection running an auth command, encoding all mails, sending each mail
-and closing the connection afterwards.
+---
 
-Take a look at the [`mail-api` crate](https://github.com/1aim/mail-api) for more details.
-
-Documentation can be [viewed on docs.rs](https://docs.rs/mail-smtp).
-
-## Example
 
 This library binds together `new-tokio-smtp` and the `mail` crates.
 
@@ -76,6 +67,10 @@ fn main() {
 ```
 
 
+## Documentation
+
+Documentation can be [viewed on docs.rs](https://docs.rs/mail-smtp).
+(once published)
 
 ## License
 
