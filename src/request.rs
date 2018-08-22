@@ -68,6 +68,25 @@ fn mailaddress_from_mailbox(mailbox: &Mailbox) -> Result<MailAddress, EncodingEr
     Ok(MailAddress::new_unchecked(address, needs_smtputf8))
 }
 
+/// Generates envelop data based on the given Mail.
+///
+/// If a sender header is given smtp will use this
+/// as smtp from else the single mailbox in from
+/// is used as smtp from.
+///
+/// All `To`'s are used as smtp recipients.
+///
+/// **`Cc`/`Bcc` is currently no supported/has no
+/// special handling**
+///
+/// # Error
+///
+/// An error is returned if there is:
+///
+/// - No From header
+/// - No To header
+/// - A From header with multiple addresses but no Sender header
+///
 pub fn derive_envelop_data_from_mail(mail: &Mail)
     -> Result<smtp::EnvelopData, MailError>
 {

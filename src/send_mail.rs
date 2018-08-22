@@ -116,7 +116,7 @@ pub fn send_encoded_mails<I>(con: Connection, mails: I)
     fut
 }
 
-/// Send mails _to a specific mail server_.
+/// Send mails to _one_ specific mail server.
 ///
 /// This encodes the mails, opens a connection, sends the mails over and
 /// closes the connection again.
