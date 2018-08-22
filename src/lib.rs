@@ -70,8 +70,14 @@ pub mod error;
 mod request;
 mod send_mail;
 
-pub use self::request::*;
-pub use self::send_mail::*;
+pub use self::request::MailRequest;
+#[cfg(feature="extended-api")]
+pub use self::request::derive_envelop_data_from_mail;
+
+pub use self::send_mail::{send_mails, SendMailResult};
+#[cfg(feature="extended-api")]
+pub use self::send_mail::{encode_mails, send_encoded_mails};
+
 
 pub use new_tokio_smtp::{ConnectionConfig, ConnectionBuilder};
 pub use new_tokio_smtp::command::auth;

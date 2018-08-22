@@ -21,3 +21,4 @@ new-tokio-smtp = { git="https://github.com/1aim/new-tokio-smtp" }
 
 [features]
 test-with-traceing = ["mail-common/traceing"]
+extended-api = []

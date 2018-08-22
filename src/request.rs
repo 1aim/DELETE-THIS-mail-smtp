@@ -32,24 +32,49 @@ impl From<Mail> for MailRequest {
 
 impl MailRequest {
 
+    /// creates a new `MailRequest` from a `Mail` instance
     pub fn new(mail: Mail) -> Self {
         MailRequest { mail, envelop_data: None }
     }
 
+    /// create a new `MailRequest` and use custom smtp `EnvelopData`
+    ///
+    /// Note that envelop data comes from `new-tokio-smtp::send_mail` and
+    /// is not re-exported so if you happen to run into one of the view
+    /// cases where you need to set it manually just import it from
+    /// `new-tokio-smtp`.
     pub fn new_with_envelop(mail: Mail, envelop: EnvelopData) -> Self {
         MailRequest { mail, envelop_data: Some(envelop) }
     }
 
+    /// replace the smtp `EnvelopData`
     pub fn override_envelop(&mut self, envelop: EnvelopData) -> Option<EnvelopData> {
         mem::replace(&mut self.envelop_data, Some(envelop))
     }
 
-    pub fn into_mail_with_envelop(self) -> Result<(Mail, EnvelopData), MailError> {
+    pub fn _into_mail_with_envelop(self) -> Result<(Mail, EnvelopData), MailError> {
         let envelop =
             if let Some(envelop) = self.envelop_data { envelop }
             else { derive_envelop_data_from_mail(&self.mail)? };
 
         Ok((self.mail, envelop))
+    }
+
+    #[cfg(not(feature="extended-api"))]
+    #[inline(always)]
+    pub(crate) fn into_mail_with_envelop(self) -> Result<(Mail, EnvelopData), MailError> {
+        self._into_mail_with_envelop()
+    }
+
+    /// Turns this type into the contained mail an associated envelop data.
+    ///
+    /// If envelop data was explicitly set it is returned.
+    /// If no envelop data was explicitly given it is derived from the
+    /// Mail header fields using `derive_envelop_data_from_mail`.
+    #[cfg(feature="extended-api")]
+    #[inline(always)]
+    pub fn into_mail_with_envelop(self) -> Result<(Mail, EnvelopData), MailError> {
+        self._into_mail_with_envelop()
     }
 }
 
