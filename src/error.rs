@@ -1,9 +1,8 @@
 //! Module containing all custom errors.
 use std::{io as std_io};
 
-use new_tokio_smtp::error::{ConnectingFailed, LogicError};
+use new_tokio_smtp::error::{ConnectingFailed, LogicError, GeneralError};
 use mail::error::MailError;
-
 
 /// Error used when sending a mail fails.
 ///
@@ -12,7 +11,8 @@ use mail::error::MailError;
 /// it's done "on the fly" when sending a mail.
 #[derive(Debug, Fail)]
 pub enum MailSendError {
-    /// Creating the mail failed.
+
+    /// Something is wrong with the mail instance (e.g. it can't be encoded).
     ///
     /// This can happen for a number of reasons including:
     ///
@@ -32,33 +32,8 @@ pub enum MailSendError {
     /// 3. Server rejects sending the mail for other reasons (it's
     ///    closing, overloaded etc.).
     #[fail(display = "{}", _0)]
-    Smtp(LogicError)
-}
+    Smtp(LogicError),
 
-impl From<MailError> for MailSendError {
-    fn from(err: MailError) -> Self {
-        MailSendError::Mail(err)
-    }
-}
-
-impl From<LogicError> for MailSendError {
-    fn from(err: LogicError) -> Self {
-        MailSendError::Smtp(err)
-    }
-}
-
-/// Error returned when something on the transport layer failed.
-///
-/// Thinks causing this error include:
-///
-/// - TLS required but not supported by server
-/// - authentication not valid
-/// - connection "broke" (e.g. because you
-///   internet connection is gone or the server
-///   crashed)
-///
-#[derive(Debug, Fail)]
-pub enum TransportError {
     /// Setting up the connection failed.
     ///
     /// Failures can include but are not limited to:
@@ -79,14 +54,37 @@ pub enum TransportError {
     Io(std_io::Error)
 }
 
-impl From<std_io::Error> for TransportError {
-    fn from(err: std_io::Error) -> Self {
-        TransportError::Io(err)
+impl From<MailError> for MailSendError {
+    fn from(err: MailError) -> Self {
+        MailSendError::Mail(err)
     }
 }
 
-impl From<ConnectingFailed> for TransportError {
+impl From<LogicError> for MailSendError {
+    fn from(err: LogicError) -> Self {
+        MailSendError::Smtp(err)
+    }
+}
+
+impl From<std_io::Error> for MailSendError {
+    fn from(err: std_io::Error) -> Self {
+        MailSendError::Io(err)
+    }
+}
+
+impl From<ConnectingFailed> for MailSendError {
     fn from(err: ConnectingFailed) -> Self {
-        TransportError::Connecting(err)
+        MailSendError::Connecting(err)
+    }
+}
+
+impl From<GeneralError> for MailSendError {
+    fn from(err: GeneralError) -> Self {
+        use self::GeneralError::*;
+        match err {
+            Connecting(err) => Self::from(err),
+            Cmd(err) => Self::from(err),
+            Io(err) => Self::from(err)
+        }
     }
 }

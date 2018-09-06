@@ -30,7 +30,7 @@
 //! use mail_headers::*;
 //! use mail_headers::components::Domain;
 //! use mail_types::{Mail, default_impl::simple_context};
-//! use mail_smtp::{send_mails, ConnectionConfig};
+//! use mail_smtp::{self as smtp, ConnectionConfig};
 //!
 //! # fn main() {
 //! // this is normally done _once per application instance_
@@ -50,7 +50,7 @@
 //! // simplified examples
 //! let con_config = ConnectionConfig::build_local_unencrypted().build();
 //!
-//! let fut = send_mails(con_config, vec![mail.into()], ctx);
+//! let fut = smtp::send(mail.into(), con_config, ctx);
 //! let results = fut.wait();
 //! # }
 //! ```
@@ -74,13 +74,9 @@ pub use self::request::MailRequest;
 #[cfg(feature="extended-api")]
 pub use self::request::derive_envelop_data_from_mail;
 
-pub use self::send_mail::{
-    send_mails,
-    SendMailResult
-};
+pub use self::send_mail::{send, send_batch};
 #[cfg(feature="extended-api")]
-pub use self::send_mail::{encode_mails, send_encoded_mails};
-
+pub use self::send_mail::encode;
 
 pub use new_tokio_smtp::{ConnectionConfig, ConnectionBuilder};
 
@@ -100,7 +96,11 @@ pub mod auth {
 
 pub mod misc {
     //! A small collection of usefull types re-exported from `new-tokio-smtp`.
-    pub use new_tokio_smtp::ClientId;
-    pub use new_tokio_smtp::Domain;
-    pub use new_tokio_smtp::AddressLiteral;
+    pub use new_tokio_smtp::{
+        ClientId,
+        Domain,
+        AddressLiteral,
+        SetupTls,
+        DefaultTlsSetup
+    };
 }

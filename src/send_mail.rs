@@ -1,166 +1,98 @@
-use std::iter::FromIterator;
-use std::vec;
+//! Module implementing mail sending using `new-tokio-smtp::send_mail`.
 
-use futures::future::{self, Either, Loop, Future};
-use new_tokio_smtp::{Cmd, Connection, ConnectionConfig, SetupTls};
-use new_tokio_smtp::send_mail::{self as smtp};
+use std::iter::{once as one};
 
-use mail_common::MailType;
-use mail_common::encoder::EncodingBuffer;
+use futures::{
+    stream::{self, Stream},
+    future::{self, Future, Either}
+};
+
+use mail_common::{
+    MailType,
+    encoder::EncodingBuffer
+};
 use mail::Context;
-use mail::error::MailError;
 
-use ::resolve_all::ResolveAll;
-use ::request::MailRequest;
-use ::error::{MailSendError, TransportError};
+use new_tokio_smtp::{
+    ConnectionConfig,
+    Cmd,
+    SetupTls,
+    send_mail::MailEnvelop,
+    Connection,
+    send_mail as smtp
+};
 
-/// Result of encoding a mail.
-pub type EncodeMailResult = Result<smtp::MailEnvelop, MailError>;
+use ::{
+    error::MailSendError,
+    request::MailRequest
+};
 
-/// Creates a `Future` which encodes all mails.
-///
-/// To encode the mails this function turns every `MailRequest` into mails with
-/// envelope data, then creates a `Future` resolving when the mail is ready to
-/// be encoded and chain this result by offloading the actual encoding of each
-/// mail to a thread pool. Lastly all of these `Future`s are polled in parallel
-/// by the returned `Future`.
-///
-/// # Error
-///
-/// The `Future` will never error, but it will resolve to a vector of results
-/// representing the encoding result for each mail in the input separately.
-pub fn encode_mails(
-    requests: impl IntoIterator<Item=MailRequest>,
-    ctx: impl Context
-    //TODO[futures/v>=0.2 | rust/! type]: use Never or !
-) -> impl Future<Item=Vec<EncodeMailResult>, Error=()> + Send
+pub fn send<A, S>(mail: MailRequest, conconf: ConnectionConfig<A, S>, ctx: impl Context)
+    -> impl Future<Item=(), Error=MailSendError>
+    where A: Cmd, S: SetupTls
 {
-    let pending = requests
-        .into_iter()
-        .map(|request| {
-            let (mail, envelop_data) =
-                match request.into_mail_with_envelop() {
-                    Ok(pair) => pair,
-                    Err(e) => return Either::A(future::err(e.into()))
+    let fut = encode(mail, ctx)
+        .then(move |envelop_res| Connection
+            ::connect_send_quit(conconf, one(envelop_res))
+            .collect())
+        .map(|mut results| results.pop().expect("[BUG] sending one mail expects one result"));
+
+    fut
+}
+
+pub fn send_batch<A, S, C>(
+    mails: Vec<MailRequest>,
+    conconf: ConnectionConfig<A, S>,
+    ctx: C
+) -> impl Stream<Item=(), Error=MailSendError>
+    where A: Cmd, S: SetupTls, C: Context
+{
+    let iter = mails.into_iter().map(move |mail| encode(mail, ctx.clone()));
+
+    let fut = collect_res(stream::futures_ordered(iter))
+        .map(move |vec_of_res| Connection::connect_send_quit(conconf, vec_of_res))
+        .flatten_stream();
+
+    fut
+}
+
+//FIXME[futures/v>=0.2] use Error=Never
+fn collect_res<S, E>(stream: S) -> impl Future<Item=Vec<Result<S::Item, S::Error>>, Error=E>
+    where S: Stream
+{
+    stream.then(|res| Ok(res)).collect()
+}
+
+
+pub fn encode<C>(request: MailRequest, ctx: C)
+    -> impl Future<Item=MailEnvelop, Error=MailSendError>
+    where C: Context
+{
+    let (mail, envelop_data) =
+        match request.into_mail_with_envelop() {
+            Ok(pair) => pair,
+            Err(e) => return Either::A(future::err(e.into()))
+        };
+
+    let fut = mail
+        .into_encodeable_mail(ctx.clone())
+        .and_then(move |enc_mail| ctx.offload_fn(move || {
+            let (mail_type, requirement) =
+                if envelop_data.needs_smtputf8() {
+                    (MailType::Internationalized, smtp::EncodingRequirement::Smtputf8)
+                } else {
+                    (MailType::Ascii, smtp::EncodingRequirement::None)
                 };
 
-            let _ctx = ctx.clone();
-            let fut = mail
-                .into_encodeable_mail(ctx.clone())
-                .and_then(move |enc_mail| _ctx.offload_fn(move || {
-                    let (mail_type, requirement) =
-                        if envelop_data.needs_smtputf8() {
-                            (MailType::Internationalized, smtp::EncodingRequirement::Smtputf8)
-                        } else {
-                            (MailType::Ascii, smtp::EncodingRequirement::None)
-                        };
+            let mut buffer = EncodingBuffer::new(mail_type);
+            enc_mail.encode(&mut buffer)?;
 
-                    let mut buffer = EncodingBuffer::new(mail_type);
-                    enc_mail.encode(&mut buffer)?;
+            let vec_buffer: Vec<_> = buffer.into();
+            let smtp_mail = smtp::Mail::new(requirement, vec_buffer);
 
-                    let vec_buffer: Vec<_> = buffer.into();
-                    let smtp_mail = smtp::Mail::new(requirement, vec_buffer);
+            Ok(smtp::MailEnvelop::from((smtp_mail, envelop_data)))
+        }))
+        .map_err(MailSendError::from);
 
-                    Ok(smtp::MailEnvelop::from((smtp_mail, envelop_data)))
-                }));
-
-            Either::B(fut)
-        });
-
-    ResolveAll::from_iter(pending)
-}
-
-/// Results of sending an encoded mail.
-pub type SendMailResult = Result<(), MailSendError>;
-
-/// Sends all encoded mails through the given `Connection`.
-///
-/// This method accepts an iterator of `EncodedMailResult`'s as it's
-/// meant to be chained with `encode_mails`.
-///
-/// # Error
-///
-/// The returned `Future` resolves to a vector of results, one for each mail
-/// sent.
-///
-/// If a transport error happens (e.g. an I/O error) a tuple consisting of
-/// the `Error`, the already sent mails and and iterator of the remaining mails is
-/// returned.
-pub fn send_encoded_mails<I>(con: Connection, mails: I)
-    -> impl Future<
-        Item=(Connection, Vec<SendMailResult>),
-        Error=(TransportError, Vec<SendMailResult>, I::IntoIter)>
-    where I: IntoIterator<Item=EncodeMailResult>, I::IntoIter: 'static
-{
-    let iter = mails.into_iter();
-    let results = Vec::new();
-    let fut = future::loop_fn((con, iter, results), |(con, mut iter, mut results)| match iter.next() {
-        None => Either::A(future::ok(Loop::Break((con, results)))),
-        Some(Err(err)) => {
-            results.push(Err(MailSendError::from(err)));
-            Either::A(future::ok(Loop::Continue((con, iter, results))))
-        },
-        Some(Ok(envelop)) => Either::B(con
-            .send_mail(envelop)
-            .then(move |res| match res {
-                Ok((con, logic_result)) => {
-                    results.push(logic_result.map_err(|(_idx, err)| MailSendError::from(err)));
-                    Ok(Loop::Continue((con, iter, results)))
-                },
-                Err(err) => {
-                    Err((TransportError::Io(err), results, iter))
-                }
-            }))
-    });
-
-    fut
-}
-
-/// Send mails to _one_ specific mail server.
-///
-/// This encodes the mails, opens a connection, sends the mails over and
-/// closes the connection again.
-///
-/// While this uses the `To` field of a mail to determine the SMTP receiver it
-/// does not resolve the server based on the mail address domain. This means
-/// it's best suited for sending to a Mail Submission Agent (MSA), but less for
-/// sending to a Mail Exchanger (MX).
-///
-/// Automatically handling `Bcc`/`Cc` is _not yet_ implemented.
-pub fn send_mails(
-    config: ConnectionConfig<impl Cmd, impl SetupTls>,
-    requests: impl IntoIterator<Item=MailRequest>,
-    ctx: impl Context)
-    -> impl Future<
-        Item=Vec<SendMailResult>,
-        Error=(TransportError, Vec<SendMailResult>, vec::IntoIter<EncodeMailResult>)>
-{
-
-    let fut = encode_mails(requests, ctx)
-        .map_err(|_| unreachable!())
-        .and_then(|mails| {
-            if mails.iter().all(|r| r.is_err()) {
-                let send_skipped = mails
-                    .into_iter()
-                    .map(|result| match result {
-                        Ok(_) => unreachable!(),
-                        Err(err) => Err(MailSendError::Mail(err))
-                    })
-                    .collect();
-
-                Either::A(future::ok(send_skipped))
-            } else {
-                let fut = Connection
-                    ::connect(config)
-                    .then(|result| match result {
-                        Err(err) => Either::A(future::err((TransportError::Connecting(err), Vec::new(), mails.into_iter()))),
-                        Ok(con) => Either::B(send_encoded_mails(con, mails))
-                    })
-                    .and_then(|(con, results)| con.quit().then(|_| Ok(results)));
-
-                Either::B(fut)
-            }
-        });
-
-    fut
+    Either::B(fut)
 }
