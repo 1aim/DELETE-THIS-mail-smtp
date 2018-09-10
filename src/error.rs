@@ -1,8 +1,13 @@
 //! Module containing all custom errors.
 use std::{io as std_io};
 
-use new_tokio_smtp::error::{ConnectingFailed, LogicError, GeneralError};
+use new_tokio_smtp::error::{
+    ConnectingFailed,
+    LogicError, GeneralError
+};
+
 use mail::error::MailError;
+use headers::error::HeaderValidationError;
 
 /// Error used when sending a mail fails.
 ///
@@ -86,5 +91,26 @@ impl From<GeneralError> for MailSendError {
             Cmd(err) => Self::from(err),
             Io(err) => Self::from(err)
         }
+    }
+}
+
+
+#[derive(Debug, Fail)]
+pub enum OtherValidationError {
+
+    #[fail(display = "no To header was present")]
+    NoTo
+}
+
+impl From<OtherValidationError> for HeaderValidationError {
+
+    fn from(ove: OtherValidationError) -> Self {
+        HeaderValidationError::Custom(ove.into())
+    }
+}
+
+impl From<OtherValidationError> for MailError {
+    fn from(ove: OtherValidationError) -> Self {
+        MailError::from(HeaderValidationError::from(ove))
     }
 }

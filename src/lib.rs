@@ -27,8 +27,10 @@
 //! #[macro_use] extern crate mail_headers;
 //!
 //! use futures::Future;
-//! use mail_headers::*;
-//! use mail_headers::components::Domain;
+//! use mail_headers::{
+//!     headers::*,
+//!     header_components::Domain
+//! };
 //! use mail_types::{Mail, default_impl::simple_context};
 //! use mail_smtp::{self as smtp, ConnectionConfig};
 //!
@@ -39,12 +41,12 @@
 //! let ctx = simple_context::new(Domain::from_unchecked("example.com".to_owned()), "asdkds".parse().unwrap())
 //!     .unwrap();
 //!
-//! let mut mail = Mail::plain_text("Some body").unwrap();
-//! mail.set_headers(headers! {
+//! let mut mail = Mail::plain_text("Some body");
+//! mail.insert_headers(headers! {
 //!     _From: ["bla@example.com"],
 //!     _To: ["blub@example.com"],
 //!     Subject: "Some Mail"
-//! }.unwrap()).unwrap();
+//! }.unwrap());
 //!
 //! // don't use unencrypted con for anything but testing and
 //! // simplified examples
@@ -60,6 +62,7 @@ extern crate futures;
 extern crate new_tokio_smtp;
 extern crate mail_types as mail;
 extern crate mail_common;
+#[cfg_attr(test, macro_use)]
 extern crate mail_headers as headers;
 #[macro_use]
 extern crate failure;
