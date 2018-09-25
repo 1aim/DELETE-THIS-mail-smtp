@@ -3,7 +3,7 @@ authors = ["Philipp Korber <p.korber@1aim.com>"]
 name = "mail-smtp"
 version = "0.2.0-wip"
 categories = []
-description = "[internal/mail-api] combines mail-types with new-tokio-smtp"
+description = "[internal/mail-api] combines mail-base with new-tokio-smtp"
 documentation = "https://docs.rs/mail-smtp"
 keywords = ["mail-api"]
 license = "MIT OR Apache-2.0"
@@ -13,7 +13,7 @@ repository = "https://github.com/1aim/mail-smtp"
 [dependencies]
 futures = "0.1"
 failure = "0.1.1"
-mail-types = { git="https://github.com/1aim/mail-types" }
+mail-base = { git="https://github.com/1aim/mail-types" }
 mail-common = { git="https://github.com/1aim/mail-common" }
 mail-headers = { git="https://github.com/1aim/mail-headers" }
 new-tokio-smtp = { git="https://github.com/1aim/new-tokio-smtp" }
