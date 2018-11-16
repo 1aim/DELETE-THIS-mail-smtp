@@ -1,6 +1,6 @@
 # mail-smtp &emsp;
 
-**Allows sending `mail-base` `Mail`'s through  `new-tokio-smtp`**
+**Allows sending `mail-core` `Mail`'s through  `new-tokio-smtp`**
 
 ---
 
@@ -29,14 +29,14 @@ the same (e.g. for bounce back mails and some no-reply setups).
 ```rust ,no_run
 extern crate futures;
 //if you use the mail facade use the re-exports from it instead
-extern crate mail_base;
+extern crate mail_core;
 extern crate mail_smtp;
 #[macro_use] extern crate mail_headers;
 
 use futures::Future;
 use mail_headers::*;
 use mail_headers::components::Domain;
-use mail_base::{Mail, default_impl::simple_context};
+use mail_core::{Mail, default_impl::simple_context};
 use mail_smtp::{send_mails, ConnectionConfig};
 
 fn main() {

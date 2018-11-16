@@ -7,7 +7,7 @@ use futures::{
     future::{self, Future, Either}
 };
 
-use mail_common::{
+use mail_internals::{
     MailType,
     encoder::EncodingBuffer
 };

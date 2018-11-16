@@ -22,7 +22,7 @@
 //! ```no_run
 //! extern crate futures;
 //! //if you use the mail facade use the re-exports from it instead
-//! extern crate mail_base;
+//! extern crate mail_core;
 //! extern crate mail_smtp;
 //! #[macro_use] extern crate mail_headers;
 //!
@@ -31,7 +31,7 @@
 //!     headers::*,
 //!     header_components::Domain
 //! };
-//! use mail_base::{Mail, default_impl::simple_context};
+//! use mail_core::{Mail, default_impl::simple_context};
 //! use mail_smtp::{self as smtp, ConnectionConfig};
 //!
 //! # fn main() {
@@ -60,8 +60,8 @@
 //!
 extern crate futures;
 extern crate new_tokio_smtp;
-extern crate mail_base as mail;
-extern crate mail_common;
+extern crate mail_core as mail;
+extern crate mail_internals;
 #[cfg_attr(test, macro_use)]
 extern crate mail_headers as headers;
 #[macro_use]

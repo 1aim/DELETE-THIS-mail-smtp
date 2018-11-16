@@ -6,7 +6,7 @@ use new_tokio_smtp::send_mail::{
     EnvelopData
 };
 
-use mail_common::{
+use mail_internals::{
     MailType,
     encoder::{EncodingBuffer, EncodableInHeader},
     error::EncodingError
